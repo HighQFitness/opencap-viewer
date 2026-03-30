@@ -23,6 +23,9 @@ RUN npm run build
 # ---------- STAGE 2: PRODUCTION ----------
 FROM nginx:alpine
 
+ARG VUE_APP_API_SERVER
+ENV VUE_APP_API_SERVER=$VUE_APP_API_SERVER
+
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
 
