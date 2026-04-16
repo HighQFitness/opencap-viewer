@@ -11,7 +11,7 @@ ENV VUE_APP_API_SERVER=${VUE_APP_API_SERVER}
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy rest of the source code
 COPY . .

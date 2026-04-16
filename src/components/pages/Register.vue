@@ -322,7 +322,7 @@
 <script>
 import { mapActions, mapState } from "vuex";
 import { apiSuccess, apiError } from "@/util/ErrorMessage.js";
-import VueCountryDropdown from 'vue-country-dropdown'
+import VueCountryDropdown from '@/components/ui/CountryDropdown.vue'
 
 export default {
   name: "Register",

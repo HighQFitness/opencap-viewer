@@ -408,7 +408,7 @@
 </template>
 
 <script>
-import VueCountryDropdown from 'vue-country-dropdown'
+import VueCountryDropdown from '@/components/ui/CountryDropdown.vue'
 import allCountries from "@/util/allCountries.js"
 import { mapState, mapActions } from 'vuex'
 import axios from 'axios'
