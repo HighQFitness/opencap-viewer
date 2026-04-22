@@ -1,7 +1,6 @@
 import router from '@/router'
 import axios from 'axios'
-import { apiSuccess, apiError } from "@/util/ErrorMessage.js";
-import Vue from "vue";
+import { apiError } from "@/util/ErrorMessage.js";
 
 export default {
   namespaced: true,
@@ -13,7 +12,6 @@ export default {
     profile_picture_url: '/images/Default_pfp.svg',
     sessionTime: 1000 * 60 * 60 * 12,
     remember_device_flag: false,
-    skip_forcing_otp: false
   },
   mutations: {
     setLoggedIn (state, { loggedIn, username, user_id}) {
@@ -27,9 +25,6 @@ export default {
     setRememberDeviceFlag (state, {flag}) {
       state.remember_device_flag = flag
     },
-    setSkipForcingOTP (state, {value}) {
-      state.skip_forcing_otp = value
-    },
     setProfilePicture (state, {value}) {
       state.profile_picture_url = value
     }
@@ -37,14 +32,19 @@ export default {
   actions: {
     async checkToken ({ commit, dispatch }) {
       const token = localStorage.getItem('auth_token')
-      const date = new Date(localStorage.getItem('valid_till'))
-      const verified = localStorage.getItem('auth_verified')
+      const validTill = localStorage.getItem('valid_till')
+      const date = validTill ? new Date(validTill) : null
+      const dateOk = !!(token && date && !isNaN(date.getTime()) && new Date() < date)
 
-      commit('setVerified', {
-        verified: verified
-      })
+      // Keep auth_verified aligned with token validity so verified is never true without a live session.
+      if (dateOk) {
+        localStorage.setItem('auth_verified', 'true')
+      } else {
+        localStorage.removeItem('auth_verified')
+      }
+      commit('setVerified', { verified: dateOk })
 
-      if (verified && token && new Date() < date) {
+      if (dateOk) {
         axios.defaults.headers.common['Authorization'] = 'Token ' + token
         commit('setLoggedIn', {
             loggedIn: true,
@@ -54,14 +54,14 @@ export default {
 
 
         try {
-          let res = await axios.post('/get_user_info/', {
+          const infoRes = await axios.post('/get_user_info/', {
             username: localStorage.getItem('auth_user')
           })
 
-          if(res.data.profile_picture)
-            dispatch('set_profile_picture_url', {profile_picture_url: res.data.profile_picture})
+          if (infoRes.data.profile_picture)
+            dispatch('set_profile_picture_url', { profile_picture_url: infoRes.data.profile_picture })
           else
-            dispatch('set_profile_picture_url', {profile_picture_url: '/images/Default_pfp.svg'})
+            dispatch('set_profile_picture_url', { profile_picture_url: '/images/Default_pfp.svg' })
         } catch (error) {
           apiError("Error retrieving user info.")
         }
@@ -71,7 +71,7 @@ export default {
       }
     },
     async login ({ state, commit, dispatch }, { username, password }) {
-      let res = await axios.post('/login/', {
+      const loginRes = await axios.post('/login/', {
         username,
         password
       })
@@ -79,25 +79,22 @@ export default {
       const date = new Date()
       date.setTime(date.getTime() + state.sessionTime)
 
-      console.log(res.data)  
-
       localStorage.setItem('valid_till', date.toJSON())
-      localStorage.setItem('auth_token', res.data.token)
-      localStorage.setItem('institutional_use', res.data.institutional_use)
+      localStorage.setItem('auth_token', loginRes.data.token)
+      localStorage.setItem('institutional_use', loginRes.data.institutional_use)
       localStorage.setItem('auth_user', username)
-      localStorage.setItem('auth_user_id', res.data.user_id)
-      commit('setSkipForcingOTP', { value: res.data.otp_challenge_sent })
+      localStorage.setItem('auth_user_id', loginRes.data.user_id)
 
-      axios.defaults.headers.common['Authorization'] = `Token ${res.data.token}`
+      axios.defaults.headers.common['Authorization'] = `Token ${loginRes.data.token}`
 
       try {
-        let res = await axios.post('/get_user_info/', {
+        const infoRes = await axios.post('/get_user_info/', {
           username: username
         })
-        if(res.data.profile_picture)
-          dispatch('set_profile_picture_url', {profile_picture_url: res.data.profile_picture})
+        if (infoRes.data.profile_picture)
+          dispatch('set_profile_picture_url', { profile_picture_url: infoRes.data.profile_picture })
         else
-          dispatch('set_profile_picture_url', {profile_picture_url: '/images/Default_pfp.svg'})
+          dispatch('set_profile_picture_url', { profile_picture_url: '/images/Default_pfp.svg' })
 
       } catch (error) {
         apiError("Error retrieving user info.")
@@ -106,36 +103,12 @@ export default {
       commit('setLoggedIn', {
         loggedIn: true,
         username: username,
-        user_id: res.data.user_id,
+        user_id: loginRes.data.user_id,
       })
     },
-    async set_verify ({ state, commit }) {
+    async set_verify ({ commit }) {
       commit('setVerified', { verified: true })
-      localStorage.setItem('auth_verified', true)
-    },
-    async set_skip_forcing_otp ({ state, commit }, value) {
-        commit('setSkipForcingOTP', { value: value })
-    },
-    async verify ({ state, commit }, { otp_token, remember_device }) {
-      console.log('verify:state.remember_device_flag', state.remember_device_flag, remember_device)
-      let data = {
-        otp_token,
-      }
-      if (state.remember_device_flag && remember_device) {
-        data.remember_device = true
-      }
-      let res = await axios.post('/verify/', data)
-
-      commit('setVerified', {
-        verified: true
-      })
-
-      const token = localStorage.getItem('auth_token')
-      const username = localStorage.getItem('auth_user')
-      localStorage.setItem('auth_verified', true)
-      if (state.remember_device_flag && remember_device) {
-        localStorage.setItem('remember_device_timestamp', Date.now())
-      }
+      localStorage.setItem('auth_verified', 'true')
     },
     async setRememberDeviceFlag ({ state, commit }, flag) {
         commit('setRememberDeviceFlag', {flag: flag})

@@ -3,7 +3,6 @@ import Router from 'vue-router'
 import store from '@/store/store.js'
 
 import Login from '@/components/pages/Login'
-import Verify from '@/components/pages/Verify'
 import Register from '@/components/pages/Register'
 import ConnectDevices from '@/components/pages/ConnectDevices'
 import Calibration from '@/components/pages/Calibration'
@@ -30,11 +29,6 @@ var router = new Router({
       path: '/login',
       name: 'Login',
       component: Login
-    },
-    {
-      path: '/verify',
-      name: 'Verify',
-      component: Verify
     },
     {
       path: '/license',
@@ -135,7 +129,6 @@ const routesRequireSession = [
 
 const acceptedRoutes = [
   'Login',
-  'Verify',
   'Register',
   'License',
   'SelectSession',
@@ -154,31 +147,24 @@ const acceptedRoutes = [
 ]
 
 router.beforeEach((to, from, next) => {
-  //If the user has log in.
+  // If the user has logged in (email OTP bypass: verified is set at login; see auth.checkToken for session restore).
   if (store.state.auth.loggedIn) {
-    // If the user has verified their identity.
-    if(store.state.auth.verified) {
-      let institutionalUse = localStorage.getItem('institutional_use')
-      if (to.name !== 'License' && (institutionalUse === '' || institutionalUse === 'patient_care' || institutionalUse === 'sports_performance_assessment' || institutionalUse === 'use_in_company')) {
-        next({ name: 'License' })
-      }
-
-      // If there are no sessions and the next route requires at least one, go to ConnectDevices to create a session.
-      if (!store.state.data.session && routesRequireSession.includes(to.name)) {
-        next({ name: 'ConnectDevices' })
-      // If there are sessions, and the next route exist, go to it.
-      } else if (acceptedRoutes.includes(to.name)) {
-        next()
-      // If the route does not exist, go to SelectSession by default.
-      } else {
-        next({ name: 'SelectSession' })
-      }
-    // If the user has not verified their identity and is trying to access to a page that is not Verify.
-    } else if (!store.state.auth.verified && to.name !== "Verify") {
+    if (!store.state.auth.verified) {
       next({ name: 'Login' })
-    // If the user has not verified their identity and is trying to access to verify, allow.
-    } else {
+      return
+    }
+    let institutionalUse = localStorage.getItem('institutional_use')
+    if (to.name !== 'License' && (institutionalUse === '' || institutionalUse === 'patient_care' || institutionalUse === 'sports_performance_assessment' || institutionalUse === 'use_in_company')) {
+      next({ name: 'License' })
+      return
+    }
+
+    if (!store.state.data.session && routesRequireSession.includes(to.name)) {
+      next({ name: 'ConnectDevices' })
+    } else if (acceptedRoutes.includes(to.name)) {
       next()
+    } else {
+      next({ name: 'SelectSession' })
     }
   } else {
     if (routesWithOutAuth.includes(to.name)) {

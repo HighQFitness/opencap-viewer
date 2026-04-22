@@ -84,7 +84,6 @@
 <script>
 import { mapActions, mapState } from 'vuex'
 import { apiError } from '@/util/ErrorMessage.js'
-import axios from "axios";
 
 export default {
   name: 'Login',
@@ -102,7 +101,6 @@ export default {
   computed: {
     ...mapState({
       sessions: state => state.data.sessions,
-      skip_forcing_otp: state => state.auth.skip_forcing_otp
     })
   },
   mounted() {
@@ -116,7 +114,7 @@ export default {
       }
   },
   methods: {
-    ...mapActions('auth', ['login', 'set_verify', 'setRememberDeviceFlag', 'set_skip_forcing_otp']),
+    ...mapActions('auth', ['login', 'set_verify', 'setRememberDeviceFlag']),
     ...mapActions('data', ['loadExistingSessions']),
     async onLogin () {
       this.loading = true
@@ -126,39 +124,22 @@ export default {
 
         if (await this.$refs.observer.validate()) {
           await this.login({
-            username: this.username, 
+            username: this.username,
             password: this.password
           })
 
-          const remember_device_timestamp = localStorage.getItem('remember_device_timestamp')
-          const valid_date = remember_device_timestamp != null ? parseInt(remember_device_timestamp) + 90*24*60*60*1000 >= Date.now() : false
-          let go_to_validate = true
-
-          if (remember_device_timestamp && valid_date) {
-              // Skip the 2FA step if the user has logged in within the last 90 days
-              let res = await axios.get('/check-otp-verified/')
-              console.log(res.data)
-              if (res.data.otp_verified) {
-                await this.set_verify()
-                try {
-                  await this.loadExistingSessions({reroute: true, quantity:20})
-                } catch (error) {
-                  apiError(error)
-                  this.$router.push({ name: 'ConnectDevices' })
-                }
-                go_to_validate = false
-              } else {
-                await this.set_skip_forcing_otp(true)
-                go_to_validate = true
-              }
-          }
+          await this.set_verify()
 
           if (this.remember_device) {
             await this.setRememberDeviceFlag(true)
-              // localStorage.setItem('remember_device_timestamp', Date.now())
+            localStorage.setItem('remember_device_timestamp', Date.now())
           }
-          if(go_to_validate) {
-            this.$router.push({ name: 'Verify' })
+
+          try {
+            await this.loadExistingSessions({ reroute: true, quantity: 20 })
+          } catch (error) {
+            apiError(error)
+            this.$router.push({ name: 'ConnectDevices' })
           }
         } else {
           if (this.password) {

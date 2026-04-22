@@ -4,11 +4,12 @@
     :items="sortedCountries"
     item-text="name"
     item-value="iso2"
-    label="Country"
+    :label="showNameInput ? 'Country' : ''"
     outlined
     dense
     dark
     clearable
+    hide-details="auto"
     @change="handleChange"
   >
     <template v-slot:item="{ item }">
@@ -16,7 +17,7 @@
         v-if="enabledFlags"
         :class="`flag-icon flag-icon-${item.iso2.toLowerCase()} mr-2`"
       ></span>
-      {{ item.name }}
+      {{ formatCountryLine(item) }}
     </template>
 
     <template v-slot:selection="{ item }">
@@ -24,7 +25,7 @@
         v-if="enabledFlags"
         :class="`flag-icon flag-icon-${item.iso2.toLowerCase()} mr-2`"
       ></span>
-      {{ item.name }}
+      {{ formatCountryLine(item) }}
     </template>
   </v-autocomplete>
 </template>
@@ -57,14 +58,14 @@ export default {
 
   computed: {
     sortedCountries() {
-      const preferred = this.countries.filter(c =>
-        this.preferredCountries.includes(c.iso2)
+      const codes = this.preferredCountries.map(c =>
+        String(c || '').toUpperCase()
       )
-
-      const rest = this.countries.filter(c =>
-        !this.preferredCountries.includes(c.iso2)
-      )
-
+      const preferredSet = new Set(codes)
+      const preferred = codes
+        .map(code => this.countries.find(c => c.iso2 === code))
+        .filter(Boolean)
+      const rest = this.countries.filter(c => !preferredSet.has(c.iso2))
       return [...preferred, ...rest]
     },
   },
@@ -90,6 +91,15 @@ export default {
   },
 
   methods: {
+    formatCountryLine(item) {
+      if (!item) return ''
+      const base = item.name || ''
+      if (!this.enabledCountryCode || item.dialCode == null || item.dialCode === '') {
+        return base
+      }
+      return `${base} (+${item.dialCode})`
+    },
+
     handleChange(iso2) {
       if (iso2) this.emit(iso2)
     },
